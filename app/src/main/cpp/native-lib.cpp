@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <string>
 #include <android/log.h>
+#include <pthread.h>
 
 // __VA_ARGS__ 代表 ...的可变参数
 #define TAG "native-lib"
@@ -203,12 +204,61 @@ native_dynamicRegister(JNIEnv *env, jobject instance, jstring name) {
     env->ReleaseStringUTFChars(name, j_name);
 }
 
+JavaVM * jvm;
+jobject instance_custom;
+void * customThread(void * pVoid) {
+
+    // 调用的话，一定需要JNIEnv *env
+    // JNIEnv *env 无法跨越线程，只有JavaVM才能跨越线程
+    LOGD("动态注册: customThread result == %d",99);
+    JNIEnv * env = NULL; // 全新的env
+    int result = jvm->AttachCurrentThread(&env, 0); // 把native的线程，附加到JVM
+    LOGD("动态注册: customThread result == %d",result);
+    if (result != 0) {
+        return 0;
+    }
+
+    jclass mainActivityClass = env->GetObjectClass(instance_custom);
+
+    // 拿到MainActivity的updateUI
+    const char * sig = "()V";
+    jmethodID updateUI = env->GetMethodID(mainActivityClass, "updateUI", sig);
+
+    env->CallVoidMethod(instance_custom, updateUI);
+
+    // 解除 附加 到 JVM 的native线程
+    jvm->DetachCurrentThread();
+
+    return 0;
+}
+
+
 
 JNIEXPORT int JNICALL //告诉虚拟机，这是jni函数
 native_printInfo(JNIEnv *env, jobject instance, jfloat info) {
     float f_float = info;
     f_float = f_float + 1.1;
     return  f_float;
+}
+
+extern "C"  //支持 C 语言
+JNIEXPORT void JNICALL //告诉虚拟机，这是jni函数
+native_testThread(JNIEnv *env, jobject thiz) {
+    LOGD("动态注册: native_testThread");
+    instance_custom = env->NewGlobalRef(thiz); // 全局的，就不会被释放，所以可以在线程里面用
+    // 如果是非全局的，函数一结束，就被释放了
+    pthread_t pthreadID;
+    pthread_create(&pthreadID, 0, customThread, instance_custom);
+    pthread_join(pthreadID, 0);
+}
+
+extern "C"  //支持 C 语言
+JNIEXPORT void JNICALL //告诉虚拟机，这是jni函数
+native_unThread(JNIEnv *env, jobject thiz) {
+    if (NULL != instance_custom) {
+        env->DeleteGlobalRef(instance_custom);
+        instance_custom = NULL;
+    }
 }
 
 
@@ -223,9 +273,13 @@ static const JNINativeMethod jniNativeMethod[] = {
         {"dynamicRegister", "(Ljava/lang/String;)V", (void *) (native_dynamicRegister)},
 
         {"printInfo", "(F)F", (void *) (native_printInfo)},
+        {"testThread", "()V", (void *) (native_testThread)},
+        {"unThread", "()V", (void *) (native_unThread)},
+
 };
 
-
+//public native void testThread();
+//public native void unThread();
 /**
  * 该函数定义在jni.h头文件中，System.loadLibrary()时会调用JNI_OnLoad()函数
  */
@@ -233,6 +287,18 @@ JNIEXPORT jint JNICALL
 JNI_OnLoad(JavaVM *javaVm, void *pVoid) {
     //通过虚拟机 创建爱你全新的 evn
     JNIEnv *jniEnv = nullptr;
+
+    /*
+      获取JavaVM接口两种直接方式
+      JavaVM接口
+      第一种方式，在加载动态链接库的时候，JVM会调用JNI_OnLoad(JavaVM* jvm, void* reserved)（如果定义了该函数）。第一个参数会传入JavaVM指针。
+      第二种方式，在native code中调用JNI_CreateJavaVM(&jvm, (void**)&env, &vm_args)可以得到JavaVM指针。
+      两种情况下，都可以用全局变量，比如JavaVM* g_jvm来保存获得的指针以便在任意上下文中使用。
+      Android系统是利用第二种方式Invocation interface来创建JVM的。
+
+     * */
+
+    jvm = javaVm;
     jint result = javaVm->GetEnv(reinterpret_cast<void **>(&jniEnv), JNI_VERSION_1_6);
     if (result != JNI_OK) {
         return JNI_ERR; // 主动报错
