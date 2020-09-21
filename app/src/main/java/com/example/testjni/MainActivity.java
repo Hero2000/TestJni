@@ -39,6 +39,8 @@ public class MainActivity extends AppCompatActivity {
                 new boolean[]{false, true}
         );
 
+        dynamicRegister("我是动态注册的");
+
     }
 
     /**
@@ -68,4 +70,9 @@ public class MainActivity extends AppCompatActivity {
 
     public native Person getPerson();
 
+
+    /**
+     * 动态注册
+     */
+    public native void dynamicRegister(String name);
 }
