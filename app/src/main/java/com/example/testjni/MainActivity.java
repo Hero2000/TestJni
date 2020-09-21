@@ -3,6 +3,7 @@ package com.example.testjni;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
@@ -41,6 +42,9 @@ public class MainActivity extends AppCompatActivity {
 
         dynamicRegister("我是动态注册的");
 
+        float result = printInfo(33.120f);
+        Log.d("native-lib", " result ==  " + result);
+
     }
 
     /**
@@ -75,4 +79,5 @@ public class MainActivity extends AppCompatActivity {
      * 动态注册
      */
     public native void dynamicRegister(String name);
+    public native float printInfo(float info);
 }

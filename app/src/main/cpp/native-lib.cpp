@@ -204,6 +204,14 @@ native_dynamicRegister(JNIEnv *env, jobject instance, jstring name) {
 }
 
 
+JNIEXPORT int JNICALL //告诉虚拟机，这是jni函数
+native_printInfo(JNIEnv *env, jobject instance, jfloat info) {
+    float f_float = info;
+    f_float = f_float + 1.1;
+    return  f_float;
+}
+
+
 /* 源码结构体
  * typedef struct {
     const char* name;
@@ -212,7 +220,9 @@ native_dynamicRegister(JNIEnv *env, jobject instance, jstring name) {
     } JNINativeMethod;
  */
 static const JNINativeMethod jniNativeMethod[] = {
-        {"dynamicRegister", "(Ljava/lang/String;)V", (void *) (native_dynamicRegister)}
+        {"dynamicRegister", "(Ljava/lang/String;)V", (void *) (native_dynamicRegister)},
+
+        {"printInfo", "(F)F", (void *) (native_printInfo)},
 };
 
 
